@@ -57,7 +57,6 @@ export type Employee = {
   npwp_photo_url?: string;
   kartu_keluarga_number?: string;
   bca_account_number?: string;
-  semi_formal_photo_url?: string;
   birth_date?: string;
   age?: number;
   birthplace?: string;
@@ -467,8 +466,8 @@ export const columns: ColumnDef<Employee>[] = [
                       <p className="font-medium">{employee.npwp_photo_url ? "Available" : "N/A"}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Semi Formal Photo</p>
-                      <p className="font-medium">{employee.semi_formal_photo_url ? "Available" : "N/A"}</p>
+                      <p className="text-sm text-muted-foreground">Avatar</p>
+                      <p className="font-medium">{employee.avatar_url ? "Available" : "N/A"}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Kartu Keluarga Number</p>

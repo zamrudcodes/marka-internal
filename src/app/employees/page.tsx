@@ -703,8 +703,8 @@ export default function EmployeesPage() {
                           <Input id="npwp_photo_url" name="npwp_photo_url" placeholder="https://..." className="max-w-md" />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="semi_formal_photo_url">Semi Formal Photo URL</Label>
-                          <Input id="semi_formal_photo_url" name="semi_formal_photo_url" placeholder="https://..." className="max-w-md" />
+                          <Label htmlFor="avatar_url">Avatar URL</Label>
+                          <Input id="avatar_url" name="avatar_url" placeholder="https://..." className="max-w-md" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="kartu_keluarga_number">Kartu Keluarga Number</Label>
