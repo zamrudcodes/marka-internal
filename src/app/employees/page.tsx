@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { IconTrash, IconDownload, IconUserOff, IconSearch, IconX } from "@tabler/icons-react";
 import {
   Dialog,
@@ -43,9 +44,17 @@ export default function EmployeesPage() {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
-  // Column visibility will be managed by react-table's internal state.
-  // Avoid duplicating visibility in React state to prevent sync issues.
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  // Set default column visibility - only show ID, name, email, phone, role, department, status, and actions
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+    salary: false,
+    hire_date: false,
+    lark_user: false,
+    preferred_nickname: false,
+    gender: false,
+    phone_number: false, // Hide the original phone_number column that appears later
+    contract_status: false,
+    tenure_months: false,
+  });
   const [rowSelection, setRowSelection] = React.useState({});
   const [dropdownOpen, setDropdownOpen] = useState(false);
   // Force re-render key when visibility changes
@@ -334,7 +343,62 @@ export default function EmployeesPage() {
   }, []);
 
   if (loading) {
-    return <div className="p-8">Loading...</div>;
+    return (
+      <div className="p-6 flex flex-col h-full space-y-6">
+        {/* Header skeleton */}
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <Skeleton className="h-10 w-64" />
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-32" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-full max-w-md" />
+        </div>
+        
+        {/* Table skeleton */}
+        <div className="flex-1 space-y-4">
+          <div className="rounded-md border">
+            {/* Table header */}
+            <div className="border-b bg-muted/50 p-4">
+              <div className="flex gap-4">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+            {/* Table rows */}
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="border-b p-4">
+                <div className="flex gap-4 items-center">
+                  <Skeleton className="h-4 w-20" />
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex gap-1">
+                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="h-8 w-8" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -766,6 +830,26 @@ export default function EmployeesPage() {
             columns={columns}
             data={filteredEmployees}
             showPagination={false}
+            initialColumnVisibility={columnVisibility}
+            meta={{
+              updateData: (rowIndex: number, columnId: string, value: any) => {
+                // Update local state immediately for responsive UI
+                setEmployees(old =>
+                  old.map((row, index) => {
+                    if (index === rowIndex) {
+                      return {
+                        ...old[rowIndex]!,
+                        [columnId]: value,
+                      }
+                    }
+                    return row
+                  })
+                )
+                // Reload from Supabase to ensure consistency
+                // This happens in the background and won't disrupt the UI
+                loadData();
+              },
+            }}
           />
         </TabsContent>
       </Tabs>

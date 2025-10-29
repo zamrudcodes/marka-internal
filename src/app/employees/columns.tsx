@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toTitleCase, formatName } from "@/lib/utils/text-format";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,18 +24,52 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { IconDotsVertical, IconUser, IconBriefcase, IconUserCircle, IconPhone, IconMessages, IconFileText, IconCheck, IconX } from "@tabler/icons-react";
+import { IconDotsVertical, IconBriefcase, IconUserCircle, IconPhone, IconMessages, IconFileText, IconCheck, IconX } from "@tabler/icons-react";
+import { BadgeCheck, UserRoundPen, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency";
 import { useState, useEffect } from "react";
 import { updateEmployee } from "./actions";
 import { getDepartments } from "../bonus-periods/actions";
 import { toast } from "sonner";
+import { Column } from "@tanstack/react-table";
+
+// Simple sortable header component
+function SortableHeader<TData, TValue>({
+  column,
+  title,
+  isSorted,
+  className = "",
+}: {
+  column: Column<TData, TValue>;
+  title: string;
+  isSorted: false | "asc" | "desc";
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors ${className}`}
+      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+    >
+      <span>{title}</span>
+      {isSorted && (
+        <span className="ml-1">
+          {isSorted === "asc" ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export type Employee = {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
+  role?: string;
   department_id: string;
   departments?: {
     id: string;
@@ -103,10 +138,13 @@ function EditableCell({
       await updateEmployee(formData);
       toast.success("Updated successfully");
       setIsEditing(false);
+      // Trigger parent reload to ensure data consistency
       onSave();
     } catch (error) {
       console.error("Error updating:", error);
       toast.error("Failed to update");
+      // Revert to original value on error
+      setEditValue(value || "");
     } finally {
       setIsSaving(false);
     }
@@ -156,11 +194,107 @@ function EditableCell({
 
   return (
     <div
-      className="cursor-pointer hover:bg-muted/50 px-2 py-1 rounded min-h-[32px] flex items-center"
+      className="cursor-pointer hover:bg-muted/50 py-1 rounded min-h-[32px] flex items-center"
       onClick={() => setIsEditing(true)}
       title="Click to edit"
     >
       {value || <span className="text-muted-foreground">Click to edit</span>}
+    </div>
+  );
+}
+
+// Editable currency cell component
+function EditableCurrencyCell({
+  value,
+  employeeId,
+  field,
+  onSave,
+}: {
+  value: number;
+  employeeId: string;
+  field: string;
+  onSave: (value: number) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value || 0);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (editValue === value) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    const formData = new FormData();
+    formData.append("id", employeeId);
+    formData.append(field, editValue.toString());
+
+    try {
+      await updateEmployee(formData);
+      toast.success("Updated successfully");
+      setIsEditing(false);
+      // Update local state after successful Supabase sync
+      onSave(editValue);
+    } catch (error) {
+      console.error("Error updating:", error);
+      toast.error("Failed to update");
+      // Revert to original value on error
+      setEditValue(value || 0);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditValue(value || 0);
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          value={editValue}
+          onChange={(e) => setEditValue(Number(e.target.value))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") handleCancel();
+          }}
+          className="h-8 text-sm text-right"
+          autoFocus
+          disabled={isSaving}
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 w-6 p-0"
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          <IconCheck className="h-3 w-3" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 w-6 p-0"
+          onClick={handleCancel}
+          disabled={isSaving}
+        >
+          <IconX className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="cursor-pointer hover:bg-muted/50 py-1 rounded min-h-[32px] flex items-center justify-end"
+      onClick={() => setIsEditing(true)}
+      title="Click to edit"
+    >
+      {formatCurrency(value) || <span className="text-muted-foreground">Click to edit</span>}
     </div>
   );
 }
@@ -200,10 +334,13 @@ function EditableSelectCell({
       await updateEmployee(formData);
       toast.success("Updated successfully");
       setIsEditing(false);
+      // Trigger parent reload to ensure data consistency
       onSave();
     } catch (error) {
       console.error("Error updating:", error);
       toast.error("Failed to update");
+      // Revert to original value on error
+      setEditValue(value || "");
     } finally {
       setIsSaving(false);
     }
@@ -247,7 +384,7 @@ function EditableSelectCell({
   const displayValue = formatDisplay ? formatDisplay(value) : value;
   return (
     <div
-      className="cursor-pointer hover:bg-muted/50 px-2 py-1 rounded min-h-[32px] flex items-center"
+      className="cursor-pointer hover:bg-muted/50 py-1 rounded min-h-[32px] flex items-center"
       onClick={() => setIsEditing(true)}
       title="Click to edit"
     >
@@ -258,243 +395,59 @@ function EditableSelectCell({
 
 export const columns: ColumnDef<Employee>[] = [
   {
+    id: "id",
+    accessorKey: "id",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="ID" isSorted={column.getIsSorted()} />
+    ),
+    enableHiding: true,
+    enableSorting: true,
+    cell: ({ row }) => {
+      const id = row.original.id;
+      return (
+        <div className="font-mono text-xs text-muted-foreground">
+          {id.substring(0, 8)}...
+        </div>
+      );
+    },
+  },
+  {
     id: "name",
     accessorKey: "first_name",
-    header: "Name",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Name" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
-      const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+      const router = useRouter();
       const employee = row.original;
       
       // Get initials for avatar fallback
       const initials = `${employee.first_name?.[0] || ''}${employee.last_name?.[0] || ''}`.toUpperCase();
 
       return (
-        <>
-          <button
-            onClick={() => setIsViewDialogOpen(true)}
-            className="flex items-center gap-3 text-left hover:underline cursor-pointer text-blue-600 hover:text-blue-800 font-medium"
-          >
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={employee.avatar_url} alt={formatName(employee.first_name, employee.last_name)} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-            <span>{formatName(row.original.first_name, row.original.last_name)}</span>
-          </button>
-
-          <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Employee Details</DialogTitle>
-                <DialogDescription>
-                  Viewing details for {employee.first_name} {employee.last_name}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-8 py-6">
-                {/* Basic Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2">
-                    <IconUser className="w-5 h-5" />
-                    Basic Information
-                  </h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Full Name</p>
-                      <p className="font-medium">{formatName(employee.first_name, employee.last_name)}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Preferred Nickname</p>
-                      <p className="font-medium">{toTitleCase(employee.preferred_nickname) || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Email</p>
-                      <p className="font-medium">{employee.email}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Phone Number</p>
-                      <p className="font-medium">{employee.phone_number || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Gender</p>
-                      <p className="font-medium">{toTitleCase(employee.gender) || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Status</p>
-                      <Badge variant="outline">{toTitleCase(employee.status)}</Badge>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Employment Details */}
-                <div className="space-y-4 pt-2">
-                  <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2">
-                    <IconBriefcase className="w-5 h-5" />
-                    Employment Details
-                  </h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Department</p>
-                      <p className="font-medium">{toTitleCase(employee.departments?.name) || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Salary</p>
-                      <p className="font-medium">{formatCurrency(employee.salary)}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Hire Date</p>
-                      <p className="font-medium">{employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Contract Status</p>
-                      <p className="font-medium">{toTitleCase(employee.contract_status) || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Tenure</p>
-                      <p className="font-medium">
-                        {employee.tenure_months ? (() => {
-                          const years = Math.floor(employee.tenure_months / 12);
-                          const months = employee.tenure_months % 12;
-                          if (years > 0 && months > 0) {
-                            return `${years} year${years > 1 ? 's' : ''} ${months} month${months > 1 ? 's' : ''}`;
-                          } else if (years > 0) {
-                            return `${years} year${years > 1 ? 's' : ''}`;
-                          } else {
-                            return `${months} month${months > 1 ? 's' : ''}`;
-                          }
-                        })() : "N/A"}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">PKWT</p>
-                      <p className="font-medium">{employee.pkwt || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">PKWT Synced</p>
-                      <p className="font-medium">{employee.pkwt_synced ? "Yes" : "No"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Personal Information */}
-                <div className="space-y-4 pt-2">
-                  <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2">
-                    <IconUserCircle className="w-5 h-5" />
-                    Personal Information
-                  </h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Birth Date</p>
-                      <p className="font-medium">{employee.birth_date ? new Date(employee.birth_date).toLocaleDateString() : "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Age</p>
-                      <p className="font-medium">{employee.age || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Birthplace</p>
-                      <p className="font-medium">{toTitleCase(employee.birthplace) || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Marital Status</p>
-                      <p className="font-medium">{toTitleCase(employee.marital_status) || "N/A"}</p>
-                    </div>
-                    <div className="col-span-2 space-y-1">
-                      <p className="text-sm text-muted-foreground">Current Address</p>
-                      <p className="font-medium">{toTitleCase(employee.current_address) || "N/A"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Emergency Contact */}
-                <div className="space-y-4 pt-2">
-                  <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2">
-                    <IconPhone className="w-5 h-5" />
-                    Emergency Contact
-                  </h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Phone</p>
-                      <p className="font-medium">{employee.emergency_contact_phone || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Name & Relationship</p>
-                      <p className="font-medium">{toTitleCase(employee.emergency_contact_name_relationship) || "N/A"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Lark Integration */}
-                <div className="space-y-4 pt-2">
-                  <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2">
-                    <IconMessages className="w-5 h-5" />
-                    Lark Integration
-                  </h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Lark User ID</p>
-                      <p className="font-medium">{toTitleCase(employee.lark_user) || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Lark Work Email</p>
-                      <p className="font-medium">{employee.lark_work_email || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Lark Status</p>
-                      <p className="font-medium">{toTitleCase(employee.lark_status) || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Instagram Handle</p>
-                      <p className="font-medium">{employee.instagram_handle || "N/A"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Documents & Banking */}
-                <div className="space-y-4 pt-2">
-                  <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2">
-                    <IconFileText className="w-5 h-5" />
-                    Documents & Banking
-                  </h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">KTP Photo</p>
-                      <p className="font-medium">{employee.ktp_photo_url ? "Available" : "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">NPWP Photo</p>
-                      <p className="font-medium">{employee.npwp_photo_url ? "Available" : "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Avatar</p>
-                      <p className="font-medium">{employee.avatar_url ? "Available" : "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Kartu Keluarga Number</p>
-                      <p className="font-medium">{employee.kartu_keluarga_number || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">BCA Account Number</p>
-                      <p className="font-medium">{employee.bca_account_number || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">BPJS TK ID</p>
-                      <p className="font-medium">{employee.bpjs_tk_id || "N/A"}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </>
+        <button
+          onClick={() => router.push(`/employees/${employee.id}`)}
+          className="flex items-center gap-3 text-left hover:underline cursor-pointer text-blue-600 hover:text-blue-800 font-medium"
+        >
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={employee.avatar_url} alt={formatName(employee.first_name, employee.last_name)} />
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+          <span>{formatName(row.original.first_name, row.original.last_name)}</span>
+        </button>
       );
     },
   },
   {
     id: "email",
     accessorKey: "email",
-    header: "Email",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Email" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       return (
@@ -508,10 +461,38 @@ export const columns: ColumnDef<Employee>[] = [
     },
   },
   {
+    id: "role",
+    accessorKey: "role",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Role" isSorted={column.getIsSorted()} />
+    ),
+    enableHiding: true,
+    enableSorting: true,
+    cell: ({ row }) => {
+      const [, forceUpdate] = useState({});
+      return (
+        <EditableCell
+          value={row.original.role}
+          employeeId={row.original.id}
+          field="role"
+          onSave={() => forceUpdate({})}
+        />
+      );
+    },
+  },
+  {
     id: "department",
     accessorKey: "department_id",
-    header: "Department",
-    enableHiding: true,
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Department" isSorted={column.getIsSorted()} />
+    ),
+    enableHiding: false,
+    enableSorting: true,
+    sortingFn: (rowA, rowB) => {
+      const deptA = rowA.original.departments?.name || "";
+      const deptB = rowB.original.departments?.name || "";
+      return deptA.localeCompare(deptB);
+    },
     cell: ({ row }) => {
       const [departments, setDepartments] = useState<any[]>([]);
       const [, forceUpdate] = useState({});
@@ -535,20 +516,126 @@ export const columns: ColumnDef<Employee>[] = [
     },
   },
   {
-    id: "salary",
-    accessorKey: "salary",
-    header: () => <div className="text-right">Salary</div>,
+    id: "status",
+    accessorKey: "status",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Status" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
+    cell: ({ row }) => {
+      const status = row.original.status;
+      const isActive = status === 'active';
+
+      return (
+        <Badge
+          variant={isActive ? 'active' : 'secondary'}
+          style={isActive ? { backgroundColor: '#3d78e6', color: 'white' } : undefined}
+        >
+          {isActive && <BadgeCheck className="h-3 w-3" />}
+          <span>{toTitleCase(status)}</span>
+        </Badge>
+      );
+    },
+  },
+  {
+    id: "phone_number_visible",
+    accessorKey: "phone_number",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Phone" isSorted={column.getIsSorted()} />
+    ),
+    enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       return (
+        <EditableCell
+          value={row.original.phone_number}
+          employeeId={row.original.id}
+          field="phone_number"
+          onSave={() => forceUpdate({})}
+        />
+      );
+    },
+  },
+  {
+    id: "actions",
+    header: "Actions",
+    enableHiding: true,
+    cell: ({ row }) => {
+      const router = useRouter();
+      const employee = row.original;
+      const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+      // Trigger deactivation from parent component
+      const handleDeactivate = () => {
+        const event = new CustomEvent('deactivate-employee', { detail: employee });
+        window.dispatchEvent(event);
+      };
+
+      const handleDelete = async () => {
+        if (confirm(`Are you sure you want to delete ${formatName(employee.first_name, employee.last_name)}? This action cannot be undone.`)) {
+          const formData = new FormData();
+          formData.append("id", employee.id);
+          try {
+            const { deleteEmployee } = await import("./actions");
+            await deleteEmployee(formData);
+            toast.success("Employee deleted successfully");
+            window.location.reload();
+          } catch (error) {
+            console.error("Error deleting employee:", error);
+            toast.error("Failed to delete employee");
+          }
+        }
+      };
+      
+      return (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => router.push(`/employees/${employee.id}`)}
+            title="Edit employee"
+          >
+            <UserRoundPen className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+            onClick={handleDelete}
+            title="Delete employee"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      );
+    },
+  },
+  {
+    id: "salary",
+    accessorKey: "salary",
+    header: ({ column }) => (
+      <div className="flex justify-end">
+        <SortableHeader column={column} title="Salary" isSorted={column.getIsSorted()} />
+      </div>
+    ),
+    enableHiding: true,
+    enableSorting: true,
+    cell: ({ row, table }) => {
+      const { updateData } = table.options.meta as any;
+      return (
         <div className="text-right">
-          <EditableCell
+          <EditableCurrencyCell
             value={row.original.salary}
             employeeId={row.original.id}
             field="salary"
-            type="number"
-            onSave={() => forceUpdate({})}
+            onSave={(newValue) => {
+              if (updateData) {
+                updateData(row.index, 'salary', newValue);
+              }
+            }}
           />
         </div>
       );
@@ -557,8 +644,11 @@ export const columns: ColumnDef<Employee>[] = [
   {
     id: "hire_date",
     accessorKey: "hire_date",
-    header: "Hire Date",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Hire Date" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       const hireDate = row.original.hire_date;
@@ -576,33 +666,12 @@ export const columns: ColumnDef<Employee>[] = [
     },
   },
   {
-    id: "status",
-    accessorKey: "status",
-    header: "Status",
-    enableHiding: true,
-    cell: ({ row }) => {
-      const [, forceUpdate] = useState({});
-      const options = [
-        { value: "active", label: "Active" },
-        { value: "inactive", label: "Inactive" }
-      ];
-
-      return (
-        <EditableSelectCell
-          value={row.original.status}
-          employeeId={row.original.id}
-          field="status"
-          options={options}
-          onSave={() => forceUpdate({})}
-          formatDisplay={(val) => toTitleCase(val)}
-        />
-      );
-    },
-  },
-  {
     accessorKey: "lark_user",
-    header: "Lark User",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Lark User" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       return (
@@ -617,8 +686,11 @@ export const columns: ColumnDef<Employee>[] = [
   },
   {
     accessorKey: "preferred_nickname",
-    header: "Nickname",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Nickname" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       return (
@@ -633,8 +705,11 @@ export const columns: ColumnDef<Employee>[] = [
   },
   {
     accessorKey: "gender",
-    header: "Gender",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Gender" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       const options = [
@@ -656,8 +731,11 @@ export const columns: ColumnDef<Employee>[] = [
   },
   {
     accessorKey: "phone_number",
-    header: "Phone",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Phone" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       return (
@@ -672,8 +750,11 @@ export const columns: ColumnDef<Employee>[] = [
   },
   {
     accessorKey: "contract_status",
-    header: "Contract Status",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Contract Status" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       const options = [
@@ -696,8 +777,11 @@ export const columns: ColumnDef<Employee>[] = [
   },
   {
     accessorKey: "tenure_months",
-    header: "Tenure (Months)",
+    header: ({ column }) => (
+      <SortableHeader column={column} title="Tenure (Months)" isSorted={column.getIsSorted()} />
+    ),
     enableHiding: true,
+    enableSorting: true,
     cell: ({ row }) => {
       const tenureMonths = row.original.tenure_months;
       if (!tenureMonths) return <div>N/A</div>;
@@ -712,44 +796,6 @@ export const columns: ColumnDef<Employee>[] = [
       } else {
         return <div>{months}m</div>;
       }
-    },
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const employee = row.original;
-
-      // Trigger deactivation from parent component
-      const handleDeactivate = () => {
-        const event = new CustomEvent('deactivate-employee', { detail: employee });
-        window.dispatchEvent(event);
-      };
-      
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">More options</span>
-              <IconDotsVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {employee.status === 'active' && (
-              <>
-                <DropdownMenuItem onClick={handleDeactivate} className="text-orange-600">
-                  Deactivate Employee
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(employee.id)}
-            >
-              Copy employee ID
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
     },
   },
 ];

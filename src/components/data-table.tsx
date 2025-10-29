@@ -36,20 +36,29 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   showPagination?: boolean;
+  meta?: any;
+  initialColumnVisibility?: VisibilityState;
 }
 
 export function DataTable<TData, TValue>({
   columns,
-  data,
+  data: initialData,
   showPagination = true,
+  meta,
+  initialColumnVisibility = {},
 }: DataTableProps<TData, TValue>) {
+  const [data, setData] = React.useState(initialData);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+    React.useState<VisibilityState>(initialColumnVisibility);
   const [rowSelection, setRowSelection] = React.useState({});
+
+  React.useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
 
   const table = useReactTable({
     data,
@@ -67,6 +76,22 @@ export function DataTable<TData, TValue>({
       columnFilters,
       columnVisibility,
       rowSelection,
+    },
+    meta: {
+      ...meta,
+      updateData: (rowIndex: number, columnId: string, value: any) => {
+        setData(old =>
+          old.map((row, index) => {
+            if (index === rowIndex) {
+              return {
+                ...old[rowIndex]!,
+                [columnId]: value,
+              }
+            }
+            return row
+          })
+        )
+      },
     },
     initialState: {
       pagination: {

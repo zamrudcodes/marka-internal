@@ -5,6 +5,78 @@ import { revalidatePath } from "next/cache";
 import * as XLSX from 'xlsx';
 import { toTitleCase } from "@/lib/utils/text-format";
 
+export async function uploadEmployeeAvatar(employeeId: string, file: File) {
+  const supabase = await createClient();
+  
+  // Validate file type
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!validTypes.includes(file.type)) {
+    throw new Error('Invalid file type. Please upload a JPEG, PNG, or WebP image.');
+  }
+  
+  // Validate file size (max 5MB)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    throw new Error('File size too large. Maximum size is 5MB.');
+  }
+  
+  // Generate unique filename
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${employeeId}-${Date.now()}.${fileExt}`;
+  const filePath = `${fileName}`;
+  
+  // Delete old avatar if exists
+  const { data: employee } = await supabase
+    .from('employees')
+    .select('avatar_url')
+    .eq('id', employeeId)
+    .single();
+    
+  if (employee?.avatar_url) {
+    // Extract filename from URL
+    const oldFileName = employee.avatar_url.split('/').pop();
+    if (oldFileName) {
+      await supabase.storage
+        .from('avatars')
+        .remove([oldFileName]);
+    }
+  }
+  
+  // Upload new avatar
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+    
+  if (uploadError) {
+    console.error('Error uploading avatar:', uploadError);
+    throw new Error('Failed to upload avatar: ' + uploadError.message);
+  }
+  
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(filePath);
+  
+  // Update employee record with new avatar URL
+  const { error: updateError } = await supabase
+    .from('employees')
+    .update({ avatar_url: publicUrl })
+    .eq('id', employeeId);
+    
+  if (updateError) {
+    console.error('Error updating employee avatar:', updateError);
+    throw new Error('Failed to update employee record: ' + updateError.message);
+  }
+  
+  revalidatePath(`/employees/${employeeId}`);
+  revalidatePath('/employees');
+  
+  return { success: true, avatarUrl: publicUrl };
+}
+
 export async function getEmployees() {
   const supabase = await createClient();
   const { data: employees, error } = await supabase
@@ -23,6 +95,28 @@ export async function getEmployees() {
   }
 
   return employees;
+}
+
+export async function getEmployeeById(id: string) {
+  const supabase = await createClient();
+  const { data: employee, error } = await supabase
+    .from("employees")
+    .select(`
+      *,
+      departments (
+        id,
+        name
+      )
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching employee:", error);
+    return null;
+  }
+
+  return employee;
 }
 
 // Helper function to calculate tenure in months
@@ -65,7 +159,7 @@ export async function addEmployee(formData: FormData) {
     npwp_photo_url: formData.get("npwp_photo_url") as string,
     kartu_keluarga_number: formData.get("kartu_keluarga_number") as string,
     bca_account_number: formData.get("bca_account_number") as string,
-    semi_formal_photo_url: formData.get("semi_formal_photo_url") as string,
+    avatar_url: formData.get("avatar_url") as string,
     birth_date: (formData.get("birth_date") as string) || null,
     age: Number(formData.get("age")) || null,
     birthplace: toTitleCase(formData.get("birthplace") as string),
@@ -91,47 +185,67 @@ export async function addEmployee(formData: FormData) {
 
 export async function updateEmployee(formData: FormData) {
   const supabase = await createClient();
-
   const id = formData.get("id") as string;
-  const hireDate = formData.get("hire_date") as string;
-  const tenureMonths = calculateTenureMonths(hireDate);
+  if (!id) {
+    throw new Error("Employee ID is required for an update.");
+  }
 
-  const employeeData: any = {
-    first_name: toTitleCase(formData.get("first_name") as string),
-    last_name: toTitleCase(formData.get("last_name") as string),
-    email: (formData.get("email") as string)?.toLowerCase(),
-    salary: Number(formData.get("salary")),
-    department_id: formData.get("department_id") as string,
-    hire_date: hireDate,
-    status: formData.get("status") as string,
-    lark_user: toTitleCase(formData.get("lark_user") as string),
-    preferred_nickname: toTitleCase(formData.get("preferred_nickname") as string),
-    lark_work_email: (formData.get("lark_work_email") as string)?.toLowerCase(),
-    gender: toTitleCase(formData.get("gender") as string),
-    contract_status: toTitleCase(formData.get("contract_status") as string),
-    tenure_months: tenureMonths,
-    marital_status: toTitleCase(formData.get("marital_status") as string),
-    ptkp_status: formData.get("ptkp_status") as string,
-    instagram_handle: formData.get("instagram_handle") as string,
-    ktp_photo_url: formData.get("ktp_photo_url") as string,
-    npwp_photo_url: formData.get("npwp_photo_url") as string,
-    kartu_keluarga_number: formData.get("kartu_keluarga_number") as string,
-    bca_account_number: formData.get("bca_account_number") as string,
-    semi_formal_photo_url: formData.get("semi_formal_photo_url") as string,
-    birth_date: formData.get("birth_date") as string,
-    age: Number(formData.get("age")),
-    birthplace: toTitleCase(formData.get("birthplace") as string),
-    current_address: toTitleCase(formData.get("current_address") as string),
-    emergency_contact_phone: formData.get("emergency_contact_phone") as string,
-    emergency_contact_name_relationship: toTitleCase(formData.get("emergency_contact_name_relationship") as string),
-    phone_number: formData.get("phone_number") as string,
-    lark_status: toTitleCase(formData.get("lark_status") as string),
-    pkwt: formData.get("pkwt") as string,
-    pkwt_synced: (formData.get("pkwt_synced") === 'on' || formData.get("pkwt_synced") === 'true'),
-    bpjs_tk_id: formData.get("bpjs_tk_id") as string,
-  };
+  const employeeData: { [key: string]: any } = {};
 
-  const { error } = await supabase.from("employees").update(employeeData).eq("id", id);
+  // Iterate over all form fields and add them to the update object if they exist
+  for (const [key, value] of formData.entries()) {
+    if (key === 'id') continue; // Skip the ID field itself
+
+    // Handle empty strings as null, except for fields that can be empty
+    const processedValue = value === '' ? null : value;
+
+    if (processedValue !== null) {
+      switch (key) {
+        case 'salary':
+        case 'age':
+        case 'tenure_months':
+          employeeData[key] = Number(processedValue);
+          break;
+        case 'pkwt_synced':
+          employeeData[key] = processedValue === 'on' || processedValue === 'true';
+          break;
+        case 'email':
+        case 'lark_work_email':
+          employeeData[key] = (processedValue as string).toLowerCase();
+          break;
+        case 'first_name':
+        case 'last_name':
+        case 'preferred_nickname':
+        case 'gender':
+        case 'contract_status':
+        case 'marital_status':
+        case 'birthplace':
+        case 'current_address':
+        case 'emergency_contact_name_relationship':
+        case 'lark_status':
+          employeeData[key] = toTitleCase(processedValue as string);
+          break;
+        default:
+          employeeData[key] = processedValue;
+      }
+    }
+  }
+
+  // If hire_date is updated, recalculate tenure_months
+  if (formData.has("hire_date")) {
+    const hireDate = formData.get("hire_date") as string | null;
+    employeeData.tenure_months = calculateTenureMonths(hireDate);
+  }
+
+  if (Object.keys(employeeData).length === 0) {
+    // No fields to update
+    return;
+  }
+
+  const { error } = await supabase
+    .from("employees")
+    .update(employeeData)
+    .eq("id", id);
 
   if (error) {
     console.error("Error updating employee:", error);
@@ -390,7 +504,7 @@ export async function bulkImportEmployees(formData: FormData) {
         npwp_photo_url,
         kartu_keluarga_number,
         bca_account_number,
-        semi_formal_photo_url,
+        avatar_url,
         birth_date,
         age,
         birthplace,
@@ -429,7 +543,7 @@ export async function bulkImportEmployees(formData: FormData) {
         npwp_photo_url: truncate(npwp_photo_url, 255),
         kartu_keluarga_number: truncate(kartu_keluarga_number, 100),
         bca_account_number: truncate(bca_account_number, 100),
-        semi_formal_photo_url: truncate(semi_formal_photo_url, 255),
+        avatar_url: truncate(avatar_url, 255),
         birth_date: birth_date || null,
         age: Number(age) || null,
         birthplace: truncate(birthplace, 100),

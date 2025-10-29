@@ -1,7 +1,7 @@
 # Product Requirements Document: Employee Bonus Calculator
 
-**Version:** 1.0
-**Date:** 2025-10-23
+**Version:** 1.1
+**Date:** 2025-10-29
 **Author:** Roo, AI Software Engineer
 **Status:** Draft
 
@@ -53,8 +53,9 @@ Calculating employee bonuses is often a manual, time-consuming, and subjective p
 *As a manager or HR partner, I need to manage the core data (employees, projects) so that calculations are always accurate.*
 
 - **User Story 2.1:** As a manager, I want to add, view, and edit employee details (name, salary, department).
-- **User Story 2.2:** As a manager, I want to add, view, and edit project details (name, total revenue).
-- **User Story 2.3:** As a manager, I want to assign employees to the projects they worked on during the period.
+- **User Story 2.2:** As a manager, I want to view a comprehensive employee detail page with organized information across multiple tabs.
+- **User Story 2.3:** As a manager, I want to add, view, and edit project details (name, total revenue).
+- **User Story 2.4:** As a manager, I want to assign employees to the projects they worked on during the period.
 
 ### Epic 3: Reporting & History
 *As a manager or HR partner, I want to view and export bonus data so that I can analyze trends and fulfill reporting requirements.*
@@ -81,7 +82,19 @@ Calculating employee bonuses is often a manual, time-consuming, and subjective p
     - Departments
 - The system must support a many-to-many relationship between employees and projects.
 
-### 4.3. User Authentication
+### 4.3. Employee Detail Page
+- The employee detail page must display comprehensive employee information organized into the following tabs:
+    - **Overview:** Basic information, employment summary, personal information, and emergency contact
+    - **Contract & Compensation:** Contract details, salary information, banking details, and Lark integration
+    - **Performance & Tasks:** Task management and performance tracking (future implementation)
+    - **Development & Skills:** Skills matrix, training history, and development plans (future implementation)
+    - **Documents:** Identity documents and additional employee information
+    - **History:** Timeline of employee events and changes (future implementation)
+- The page must support avatar upload with image cropping functionality
+- The page must provide an edit dialog for updating employee information
+- The page must be fully scrollable and responsive
+
+### 4.4. User Authentication
 - Users must log in to access the application.
 - User roles (e.g., Manager, HR, Admin) should be supported to control access to data and features. (Initial implementation may start with a single "Manager" role).
 

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -91,7 +92,42 @@ export default function DepartmentsPage() {
   });
 
   if (loading) {
-    return <div className="p-8">Loading...</div>;
+    return (
+      <div className="p-6 flex flex-col h-full space-y-6">
+        {/* Header skeleton */}
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-10 w-48" />
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-9 w-40" />
+          </div>
+        </div>
+        
+        {/* Table skeleton */}
+        <div className="flex-1 space-y-4">
+          <div className="rounded-md border">
+            {/* Table header */}
+            <div className="border-b bg-muted/50 p-4">
+              <div className="flex gap-4">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-64" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+            {/* Table rows */}
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="border-b p-4">
+                <div className="flex gap-4 items-center">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-64" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
