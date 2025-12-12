@@ -448,6 +448,11 @@ export default function EmployeeDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
+                  <p className="text-sm text-muted-foreground">Employee Number</p>
+                  <p className="font-medium">{employee.emp_no || "N/A"}</p>
+                </div>
+                <Separator />
+                <div>
                   <p className="text-sm text-muted-foreground">Contract Status</p>
                   <p className="font-medium">{toTitleCase(employee.contract_status) || "N/A"}</p>
                 </div>
@@ -487,15 +492,46 @@ export default function EmployeeDetailPage() {
                   <p className="text-sm text-muted-foreground">PTKP Status</p>
                   <p className="font-medium">{employee.ptkp_status || "N/A"}</p>
                 </div>
+                <Separator />
+                <div>
+                  <p className="text-sm text-muted-foreground">Gross Up Enabled</p>
+                  <p className="font-medium">{employee.gross_up_enabled ? "Yes" : "No"}</p>
+                </div>
               </CardContent>
             </Card>
 
-            {/* Banking Information */}
+            {/* Tax & Identity Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <IconFileText className="w-5 h-5" />
-                  Banking Information
+                  Tax & Identity Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">NIK</p>
+                  <p className="font-medium">{employee.nik || "N/A"}</p>
+                </div>
+                <Separator />
+                <div>
+                  <p className="text-sm text-muted-foreground">NPWP</p>
+                  <p className="font-medium">{employee.npwp || "N/A"}</p>
+                </div>
+                <Separator />
+                <div>
+                  <p className="text-sm text-muted-foreground">NITKU</p>
+                  <p className="font-medium">{employee.nitku || "N/A"}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Banking & BPJS Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <IconFileText className="w-5 h-5" />
+                  Banking & BPJS Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -507,6 +543,11 @@ export default function EmployeeDetailPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">BPJS TK ID</p>
                   <p className="font-medium">{employee.bpjs_tk_id || "N/A"}</p>
+                </div>
+                <Separator />
+                <div>
+                  <p className="text-sm text-muted-foreground">BPJS-Kes Salary Multiplier</p>
+                  <p className="font-medium">{employee.bpjs_kes_salary_multiplier || "1.0"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -727,6 +768,10 @@ export default function EmployeeDetailPage() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
+                    <Label htmlFor="emp_no">Employee Number</Label>
+                    <Input id="emp_no" name="emp_no" defaultValue={employee.emp_no || ''} className="max-w-md" />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="department_id">Department</Label>
                     <Select name="department_id" defaultValue={employee.department_id || ''}>
                       <SelectTrigger className="w-full">
@@ -765,6 +810,36 @@ export default function EmployeeDetailPage() {
                   <div className="space-y-2">
                     <Label htmlFor="pkwt">PKWT</Label>
                     <Input id="pkwt" name="pkwt" defaultValue={employee.pkwt || ''} className="max-w-md" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Tax & Payroll Information */}
+              <div className="space-y-4 pt-2">
+                <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2">
+                  <IconFileText className="w-5 h-5" />
+                  Tax & Payroll Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nik">NIK</Label>
+                    <Input id="nik" name="nik" defaultValue={employee.nik || ''} className="max-w-md" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="npwp">NPWP</Label>
+                    <Input id="npwp" name="npwp" defaultValue={employee.npwp || ''} className="max-w-md" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nitku">NITKU</Label>
+                    <Input id="nitku" name="nitku" defaultValue={employee.nitku || ''} className="max-w-md" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bpjs_kes_salary_multiplier">BPJS-Kes Salary Multiplier</Label>
+                    <Input id="bpjs_kes_salary_multiplier" name="bpjs_kes_salary_multiplier" type="number" step="0.01" defaultValue={employee.bpjs_kes_salary_multiplier || 1.0} className="max-w-md" />
+                  </div>
+                  <div className="space-y-2 flex items-center gap-2 pt-6">
+                    <Checkbox id="gross_up_enabled" name="gross_up_enabled" defaultChecked={employee.gross_up_enabled} />
+                    <Label htmlFor="gross_up_enabled" className="cursor-pointer">Gross Up Enabled</Label>
                   </div>
                 </div>
               </div>

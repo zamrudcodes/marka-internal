@@ -15,7 +15,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { addProject, getProjects } from "./actions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { addProject, getProjects, getEmployeesForSelect } from "./actions";
 import { DataTable } from "@/components/data-table";
 import { columns } from "./columns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,8 +31,16 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { IconLayoutColumns, IconChevronDown } from "@tabler/icons-react";
 import { toast } from "sonner";
 
+type Employee = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+};
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("active");
@@ -43,10 +58,14 @@ export default function ProjectsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const projectsData = await getProjects();
+      const [projectsData, employeesData] = await Promise.all([
+        getProjects(),
+        getEmployeesForSelect()
+      ]);
       setProjects(projectsData);
+      setEmployees(employeesData);
     } catch (error) {
-      console.error("Error loading projects:", error);
+      console.error("Error loading data:", error);
     } finally {
       setLoading(false);
     }
@@ -69,7 +88,7 @@ export default function ProjectsPage() {
       }
     } catch (error) {
       console.error("Error adding project:", error);
-      alert("Failed to add project");
+      alert(error instanceof Error ? error.message : "Failed to add project");
     }
   };
 
@@ -188,47 +207,161 @@ export default function ProjectsPage() {
               <DialogTrigger asChild>
                 <Button>Add Project</Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
                 <form onSubmit={handleAddProject}>
                   <DialogHeader>
                     <DialogTitle>Add Project</DialogTitle>
                     <DialogDescription>
-                      Add a new project to the system.
+                      Add a new project to the system with health tracking.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="name" className="text-right">
-                        Name
-                      </Label>
-                      <Input id="name" name="name" className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="description" className="text-right">
-                        Description
-                      </Label>
-                      <Textarea id="description" name="description" className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="start_date" className="text-right">
-                        Start Date
-                      </Label>
-                      <Input id="start_date" name="start_date" type="date" className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="end_date" className="text-right">
-                        End Date
-                      </Label>
-                      <Input id="end_date" name="end_date" type="date" className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="revenue" className="text-right">
-                        Revenue
-                      </Label>
-                      <Input id="revenue" name="revenue" type="number" className="col-span-3" />
-                    </div>
-                  </div>
-                  <DialogFooter>
+                  <Tabs defaultValue="basic" className="w-full mt-4">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="basic">Basic</TabsTrigger>
+                      <TabsTrigger value="sla">SLA</TabsTrigger>
+                      <TabsTrigger value="health">Health</TabsTrigger>
+                      <TabsTrigger value="links">Links</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="basic" className="space-y-4 mt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Name *</Label>
+                          <Input id="name" name="name" required />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="project_manager_id">Project Manager</Label>
+                          <Select name="project_manager_id">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select PM" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No PM assigned</SelectItem>
+                              {employees.map((emp) => (
+                                <SelectItem key={emp.id} value={emp.id}>
+                                  {emp.first_name} {emp.last_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sow_type">SOW Type</Label>
+                          <Select name="sow_type">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="paid_media">Paid Media</SelectItem>
+                              <SelectItem value="content_creation">Content Creation</SelectItem>
+                              <SelectItem value="social_listening">Social Listening</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="monthly_revenue">Monthly Revenue</Label>
+                          <Input id="monthly_revenue" name="monthly_revenue" type="number" placeholder="0" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="billable_cap">Billable Cap</Label>
+                          <Input id="billable_cap" name="billable_cap" type="number" placeholder="Max budget" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="renewal_date">Renewal Date</Label>
+                          <Input id="renewal_date" name="renewal_date" type="date" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="start_date">Start Date</Label>
+                          <Input id="start_date" name="start_date" type="date" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="end_date">End Date</Label>
+                          <Input id="end_date" name="end_date" type="date" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea id="description" name="description" placeholder="Project description..." />
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="sla" className="space-y-4 mt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="sla_target_type">SLA Target Type</Label>
+                          <Input id="sla_target_type" name="sla_target_type" placeholder="e.g., Videos Delivered, ROAS" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sla_target_value">SLA Target Value</Label>
+                          <Input id="sla_target_value" name="sla_target_value" type="number" step="0.01" placeholder="e.g., 5, 98" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="current_actual_value">Current Actual Value</Label>
+                          <Input id="current_actual_value" name="current_actual_value" type="number" step="0.01" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="current_sla_percentage">Current SLA %</Label>
+                          <Input id="current_sla_percentage" name="current_sla_percentage" type="number" step="0.01" min="0" max="100" />
+                        </div>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="health" className="space-y-4 mt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="health_status">Health Status</Label>
+                          <Select name="health_status" defaultValue="green">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="green">Green (Stable)</SelectItem>
+                              <SelectItem value="amber">Amber (At Risk)</SelectItem>
+                              <SelectItem value="red">Red (Critical/Churn)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="primary_blocker">Primary Blocker</Label>
+                          <Select name="primary_blocker" defaultValue="none">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select blocker" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="client_approval">Client Approval</SelectItem>
+                              <SelectItem value="creative_capacity">Creative Capacity</SelectItem>
+                              <SelectItem value="tech_issue">Tech Issue</SelectItem>
+                              <SelectItem value="budget_cap">Budget Cap</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="last_client_touch">Last Client Touch</Label>
+                          <Input id="last_client_touch" name="last_client_touch" type="date" />
+                        </div>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="links" className="space-y-4 mt-4">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="link_to_sow">Link to SOW (Contract PDF)</Label>
+                          <Input id="link_to_sow" name="link_to_sow" type="url" placeholder="https://..." />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="link_to_live_tracker">Link to Live Tracker</Label>
+                          <Input id="link_to_live_tracker" name="link_to_live_tracker" type="url" placeholder="https://docs.google.com/..." />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="link_to_asset_folder">Link to Asset Folder</Label>
+                          <Input id="link_to_asset_folder" name="link_to_asset_folder" type="url" placeholder="https://drive.google.com/..." />
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                  
+                  <DialogFooter className="mt-6">
                     <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                       Cancel
                     </Button>

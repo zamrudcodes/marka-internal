@@ -422,7 +422,7 @@ export const columns: ColumnDef<Employee>[] = [
     cell: ({ row }) => {
       const router = useRouter();
       const employee = row.original;
-      
+
       // Get initials for avatar fallback
       const initials = `${employee.first_name?.[0] || ''}${employee.last_name?.[0] || ''}`.toUpperCase();
 
@@ -588,7 +588,7 @@ export const columns: ColumnDef<Employee>[] = [
           }
         }
       };
-      
+
       return (
         <div className="flex items-center gap-1">
           <Button
@@ -652,11 +652,11 @@ export const columns: ColumnDef<Employee>[] = [
     cell: ({ row }) => {
       const [, forceUpdate] = useState({});
       const hireDate = row.original.hire_date;
-      const displayDate = hireDate ? new Date(hireDate).toLocaleDateString() : "";
-      
+
+
       return (
         <EditableCell
-          value={hireDate ? new Date(hireDate).toISOString().split('T')[0] : ""}
+          value={hireDate || ""}
           employeeId={row.original.id}
           field="hire_date"
           type="date"
@@ -785,10 +785,10 @@ export const columns: ColumnDef<Employee>[] = [
     cell: ({ row }) => {
       const tenureMonths = row.original.tenure_months;
       if (!tenureMonths) return <div>N/A</div>;
-      
+
       const years = Math.floor(tenureMonths / 12);
       const months = tenureMonths % 12;
-      
+
       if (years > 0 && months > 0) {
         return <div>{years}y {months}m</div>;
       } else if (years > 0) {

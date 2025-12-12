@@ -5,6 +5,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
+import { getCurrentUser, getUserFeatures } from "@/app/auth/actions";
+import { type UserRole } from "@/lib/auth/permissions";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,13 +23,36 @@ export const metadata: Metadata = {
   description: "Manage employees and projects for bonus calculation.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Get user data on the server
+  const currentUser = await getCurrentUser();
+
+  // Get user features if user is authenticated
+  // Fallback to empty array if feature table doesn't exist yet
+  let userFeatures: any[] = [];
+  if (currentUser) {
+    try {
+      userFeatures = await getUserFeatures(currentUser.id);
+    } catch (error) {
+      console.warn('Could not fetch user features, using empty array:', error);
+      userFeatures = [];
+    }
+  }
+
+  const userData = currentUser ? {
+    name: currentUser.email?.split('@')[0] || 'User',
+    email: currentUser.email || '',
+    avatar: "/avatars/shadcn.jpg",
+    role: currentUser.role,
+    features: userFeatures,
+  } : null;
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -39,7 +64,7 @@ export default function RootLayout({
             } as React.CSSProperties
           }
         >
-          <AppSidebar variant="inset" />
+          <AppSidebar variant="inset" userData={userData} />
           <SidebarInset className="flex flex-col h-screen overflow-hidden">
             <SiteHeader />
             <main className="flex-1 overflow-hidden">{children}</main>

@@ -12,6 +12,7 @@ const pathToTitleMap: { [key: string]: string } = {
   "/bonus-periods": "Bonus Periods",
   "/payroll": "Payroll",
   "/departments": "Departments",
+  "/ads-performance": "Ads Performance",
 };
 
 export function SiteHeader() {
