@@ -26,7 +26,8 @@ export type FeatureKey =
   | 'ads_performance'
   | 'users'
   | 'commercial'
-  | 'commercial.new_intake';
+  | 'commercial.new_intake'
+  | 'commercial.project_briefs';
 
 // Role hierarchy for quick checks
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -51,6 +52,7 @@ export const ROUTE_TO_FEATURE: Record<string, FeatureKey> = {
   '/users': 'users',
   '/commercial': 'commercial',
   '/commercial/new-project-intake': 'commercial.new_intake',
+  '/commercial/project-briefs': 'commercial.project_briefs',
 };
 
 // Default features per role (used as presets when assigning features)
@@ -69,6 +71,7 @@ export const ROLE_DEFAULT_FEATURES: Record<UserRole, FeatureKey[]> = {
     'users',
     'commercial',
     'commercial.new_intake',
+    'commercial.project_briefs',
   ],
   manager: [
     'dashboard',
@@ -81,6 +84,7 @@ export const ROLE_DEFAULT_FEATURES: Record<UserRole, FeatureKey[]> = {
     'payroll',
     'commercial',
     'commercial.new_intake',
+    'commercial.project_briefs',
   ],
   operations: [
     'dashboard',
@@ -91,6 +95,7 @@ export const ROLE_DEFAULT_FEATURES: Record<UserRole, FeatureKey[]> = {
     'project_charters',
     'commercial',
     'commercial.new_intake',
+    'commercial.project_briefs',
   ],
   sales: [
     'dashboard',
@@ -101,6 +106,7 @@ export const ROLE_DEFAULT_FEATURES: Record<UserRole, FeatureKey[]> = {
     'project_charters',
     'commercial',
     'commercial.new_intake',
+    'commercial.project_briefs',
   ],
   viewer: [
     'dashboard',

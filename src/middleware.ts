@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { canAccessRoute, getFeatureKeyFromRoute, type FeatureKey } from '@/lib/auth/permissions'
+import { canAccessRoute, getFeatureKeyFromRoute, type FeatureKey, ROLE_DEFAULT_FEATURES, type UserRole } from '@/lib/auth/permissions'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -55,13 +55,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser()
-  
   const pathname = request.nextUrl.pathname
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/auth/accept-invitation', '/auth/setup-admin']
+  const publicRoutes = ['/login', '/auth/accept-invitation', '/auth/setup-admin', '/commercial/new-project-intake']
+
+  // Get current user (skip for public intake route to allow anonymous submissions)
+  const { data: { user } } = await supabase.auth.getUser()
+
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   // If not authenticated and trying to access protected route

@@ -74,6 +74,10 @@ const allNavItems: NavItem[] = [
         title: "New Project Intake",
         url: "/commercial/new-project-intake",
       },
+      {
+        title: "Project Briefs",
+        url: "/commercial/project-briefs",
+      },
     ],
   },
   {

@@ -1,9 +1,9 @@
 -- Add commercial features to the features table
 
-INSERT INTO features (key, name, description, category)
+INSERT INTO features (key, name, description)
 VALUES 
-  ('commercial', 'Commercial Module', 'Access to the Commercial module', 'Commercial'),
-  ('commercial.new_intake', 'New Project Intake', 'Access to the New Project Intake form', 'Commercial')
+  ('commercial', 'Commercial Module', 'Access to the Commercial module'),
+  ('commercial.new_intake', 'New Project Intake', 'Access to the New Project Intake form')
 ON CONFLICT (key) DO NOTHING;
 
 -- Grant these features to existing admins automatically

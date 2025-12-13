@@ -1,8 +1,10 @@
 "use client";
 
+import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     Form,
@@ -16,10 +18,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { createProjectBrief } from "@/app/commercial/actions";
 
 const formSchema = z.object({
+    // Project Information
+    project_name: z.string().min(1, "Project Name is required"),
+    submitter_email: z.string().email("Valid email required").or(z.literal("")),
+
     // Section 1: The Strategy
     avatar: z.string().min(1, "The Avatar is required"),
     trigger: z.string().min(1, "The Trigger is required"),
@@ -40,10 +46,16 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function NewProjectIntakeForm() {
+export function NewProjectIntakeForm({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
+    const router = useRouter();
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
+        mode: "onBlur",
         defaultValues: {
+            project_name: "",
+            submitter_email: "",
             avatar: "",
             trigger: "",
             visual_proof: "",
@@ -58,15 +70,76 @@ export function NewProjectIntakeForm() {
         },
     });
 
-    function onSubmit(values: FormValues) {
-        // For now, just log to console and show toast
-        console.log(values);
-        toast.success("Project intake form submitted successfully (Console Log only for now)");
-    }
+    const onSubmit = React.useCallback(async (values: FormValues) => {
+        // Validate email for non-authenticated users
+        if (!isAuthenticated && !values.submitter_email) {
+            toast.error("Email is required for submission");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const result = await createProjectBrief(values);
+
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                toast.success("Project brief submitted successfully!");
+                form.reset();
+                // Don't redirect public users to project-briefs (they can't access it)
+                if (isAuthenticated) {
+                    router.push("/commercial/project-briefs");
+                } else {
+                    toast.success("Thank you! We'll review your submission and contact you via email.", {
+                        duration: 5000,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Submission error:", error);
+            toast.error("Failed to submit brief. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [form, router, isAuthenticated]);
 
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-4xl mx-auto py-10">
+
+                {/* Project Name */}
+                <FormField
+                    control={form.control}
+                    name="project_name"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Project Name <span className="text-red-500">*</span></FormLabel>
+                            <FormControl>
+                                <Input placeholder="Enter a descriptive project name" {...field} />
+                            </FormControl>
+                            <FormDescription>A unique name to identify this project brief.</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                {/* Submitter Email (only for non-authenticated users) */}
+                {!isAuthenticated && (
+                    <FormField
+                        control={form.control}
+                        name="submitter_email"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Your Email <span className="text-red-500">*</span></FormLabel>
+                                <FormControl>
+                                    <Input type="email" placeholder="your@email.com" {...field} />
+                                </FormControl>
+                                <FormDescription>We'll use this email to notify you about your brief status.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
 
                 {/* Section 1: The Strategy */}
                 <Card>
@@ -240,7 +313,7 @@ export function NewProjectIntakeForm() {
                             name="dos_and_donts"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Do’s & Don’ts</FormLabel>
+                                    <FormLabel>Do's & Don'ts</FormLabel>
                                     <FormControl>
                                         <Textarea placeholder="Are there specific words we cannot say? (e.g., Compliance issues)" {...field} />
                                     </FormControl>
@@ -252,7 +325,9 @@ export function NewProjectIntakeForm() {
                     </CardContent>
                 </Card>
 
-                <Button type="submit" className="w-full">Submit Project Intake</Button>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? "Submitting..." : "Submit Project Intake"}
+                </Button>
             </form>
         </Form>
     );

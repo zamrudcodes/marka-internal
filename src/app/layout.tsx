@@ -6,7 +6,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
 import { getCurrentUser, getUserFeatures } from "@/app/auth/actions";
-import { type UserRole } from "@/lib/auth/permissions";
+import { type UserRole, ROLE_DEFAULT_FEATURES, type FeatureKey } from "@/lib/auth/permissions";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,15 +32,24 @@ export default async function RootLayout({
   const currentUser = await getCurrentUser();
 
   // Get user features if user is authenticated
-  // Fallback to empty array if feature table doesn't exist yet
-  let userFeatures: any[] = [];
-  if (currentUser) {
+  // Merge DB features with role default features
+  let userFeatures: FeatureKey[] = [];
+
+  if (currentUser && currentUser.role) {
+    // 1. Get default features for the role from code
+    const defaultFeatures = ROLE_DEFAULT_FEATURES[currentUser.role] || [];
+
+    // 2. Get additional enabled features from DB
+    let dbFeatures: FeatureKey[] = [];
     try {
-      userFeatures = await getUserFeatures(currentUser.id);
+      // Cast the result to FeatureKey[] 
+      dbFeatures = (await getUserFeatures(currentUser.id)) as FeatureKey[];
     } catch (error) {
-      console.warn('Could not fetch user features, using empty array:', error);
-      userFeatures = [];
+      console.warn('Could not fetch user features, using defaults:', error);
     }
+
+    // 3. Merge and deduplicate
+    userFeatures = Array.from(new Set([...defaultFeatures, ...dbFeatures]));
   }
 
   const userData = currentUser ? {
@@ -67,7 +76,7 @@ export default async function RootLayout({
           <AppSidebar variant="inset" userData={userData} />
           <SidebarInset className="flex flex-col h-screen overflow-hidden">
             <SiteHeader />
-            <main className="flex-1 overflow-hidden">{children}</main>
+            <main className="flex-1 overflow-auto">{children}</main>
             <Toaster position="top-center" closeButton />
           </SidebarInset>
         </SidebarProvider>
