@@ -131,13 +131,25 @@ async function refreshAccessToken(refreshToken: string, rowId: string) {
     return tokens.access_token;
 }
 
-export async function getBankBalance() {
+export interface BankBalanceData {
+    currentBalance: number;
+    previousBalance: number | null;
+    trend: number | null; // percentage change
+    asOfDate: string;
+}
+
+export async function getBankBalance(date?: string): Promise<number | null> {
     const token = await getValidAccessToken();
     if (!token) {
         return null;
     }
 
-    const response = await fetch(`${KLEDO_API_URL}/dashboards/banks`, {
+    const url = new URL(`${KLEDO_API_URL}/dashboards/banks`);
+    if (date) {
+        url.searchParams.set("date", date);
+    }
+
+    const response = await fetch(url.toString(), {
         headers: {
             "Authorization": `Bearer ${token}`,
         },
@@ -160,4 +172,43 @@ export async function getBankBalance() {
     }
 
     return 0;
+}
+
+export async function getBankBalanceWithTrend(currentDate?: string): Promise<BankBalanceData | null> {
+    const token = await getValidAccessToken();
+    if (!token) {
+        return null;
+    }
+
+    // Use provided date or today
+    const today = currentDate || new Date().toISOString().split('T')[0];
+
+    // Calculate previous period (same day last month)
+    const todayDate = new Date(today);
+    const previousDate = new Date(todayDate);
+    previousDate.setMonth(previousDate.getMonth() - 1);
+    const previousDateStr = previousDate.toISOString().split('T')[0];
+
+    // Fetch both current and previous balances
+    const [currentBalance, previousBalance] = await Promise.all([
+        getBankBalance(today),
+        getBankBalance(previousDateStr),
+    ]);
+
+    if (currentBalance === null) {
+        return null;
+    }
+
+    // Calculate trend percentage
+    let trend: number | null = null;
+    if (previousBalance !== null && previousBalance !== 0) {
+        trend = ((currentBalance - previousBalance) / previousBalance) * 100;
+    }
+
+    return {
+        currentBalance,
+        previousBalance,
+        trend,
+        asOfDate: today,
+    };
 }
