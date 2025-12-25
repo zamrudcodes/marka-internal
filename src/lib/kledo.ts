@@ -137,29 +137,25 @@ export async function getBankBalance() {
         return null;
     }
 
-    const response = await fetch(`${KLEDO_API_URL}/finance/accounts`, {
+    const response = await fetch(`${KLEDO_API_URL}/dashboards/banks`, {
         headers: {
             "Authorization": `Bearer ${token}`,
         },
     });
 
     if (!response.ok) {
-        console.error("Failed to fetch bank accounts:", await response.text());
-        return null; // Handle error appropriately in UI
+        console.error("Failed to fetch bank balance:", await response.text());
+        return null;
     }
 
     const data = await response.json();
-    // Assuming the response structure based on common accounting APIs, but user provided docs link.
-    // I made a best guess. I will need to refine if I can see the structure.
-    // Usually it returns a list of accounts. Sum them up or pick the main one.
-    // For now, let's assuming "data.data" is an array of accounts.
 
+    // Response format: { data: [{ account: { id, name }, closing_balance: number }] }
     if (data && data.data && Array.isArray(data.data)) {
-        // Sum of all generic bank accounts? Or just return the first one?
-        // Let's sum all accounts with type 'Bank'.
-        const accounts = data.data;
-        // This is a guess on property names. 'balance' is standard.
-        const totalBalance = accounts.reduce((sum: number, acc: any) => sum + (Number(acc.balance) || 0), 0);
+        const totalBalance = data.data.reduce(
+            (sum: number, bank: { closing_balance?: number }) => sum + (Number(bank.closing_balance) || 0),
+            0
+        );
         return totalBalance;
     }
 
