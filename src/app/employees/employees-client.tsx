@@ -202,7 +202,7 @@ export function EmployeesClient({ initialEmployees, initialDepartments }: Employ
     const handleExport = async (format: 'csv' | 'xlsx') => {
         try {
             toast.info(`Preparing ${format.toUpperCase()} export...`);
-            const XLSX = await import('xlsx');
+            const ExcelJS = await import('exceljs');
             const data = await exportEmployees(format);
 
             const exportData = data.map((emp: any) => ({
@@ -226,10 +226,23 @@ export function EmployeesClient({ initialEmployees, initialDepartments }: Employ
                 'Emergency Contact Name': emp.emergency_contact_name_relationship || '',
             }));
 
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Employees');
+
+            // Add headers
+            if (exportData.length > 0) {
+                const headers = Object.keys(exportData[0]);
+                worksheet.addRow(headers);
+
+                // Add data rows
+                exportData.forEach((row: any) => {
+                    worksheet.addRow(Object.values(row));
+                });
+            }
+
             if (format === 'csv') {
-                const ws = XLSX.utils.json_to_sheet(exportData);
-                const csv = XLSX.utils.sheet_to_csv(ws);
-                const blob = new Blob([csv], { type: 'text/csv' });
+                const buffer = await workbook.csv.writeBuffer();
+                const blob = new Blob([buffer], { type: 'text/csv' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -237,10 +250,14 @@ export function EmployeesClient({ initialEmployees, initialDepartments }: Employ
                 a.click();
                 window.URL.revokeObjectURL(url);
             } else {
-                const ws = XLSX.utils.json_to_sheet(exportData);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'Employees');
-                XLSX.writeFile(wb, `employees_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `employees_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+                a.click();
+                window.URL.revokeObjectURL(url);
             }
 
             toast.success(`Successfully exported ${exportData.length} employees to ${format.toUpperCase()}`);

@@ -1,5 +1,4 @@
-const XLSX = require('xlsx');
-const fs = require('fs');
+const ExcelJS = require('exceljs');
 const path = require('path');
 
 // Define the headers
@@ -36,17 +35,19 @@ const headers = [
   'bpjs_tk_id'
 ];
 
-// Create a new workbook
-const wb = XLSX.utils.book_new();
+async function generateTemplate() {
+  // Create a new workbook
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Employees');
 
-// Create worksheet with headers
-const ws = XLSX.utils.aoa_to_sheet([headers]);
+  // Add headers
+  worksheet.addRow(headers);
 
-// Add the worksheet to the workbook
-XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+  // Write to file
+  const outputPath = path.join(__dirname, '../public/employee_import_template.xlsx');
+  await workbook.xlsx.writeFile(outputPath);
 
-// Write to file
-const outputPath = path.join(__dirname, '../public/employee_import_template.xlsx');
-XLSX.writeFile(wb, outputPath);
+  console.log('XLSX template generated successfully at:', outputPath);
+}
 
-console.log('XLSX template generated successfully at:', outputPath);
+generateTemplate().catch(console.error);
