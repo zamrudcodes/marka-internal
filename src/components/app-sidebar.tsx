@@ -147,7 +147,7 @@ export function AppSidebar({ userData, ...props }: AppSidebarProps) {
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <a href="/dashboard">
-                <span className="text-base font-semibold">Marka Internal</span>
+                <span className="text-base font-semibold">MarkaOS</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
