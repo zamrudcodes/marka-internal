@@ -1,5 +1,5 @@
-import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
-
+import { IconTrendingDown, IconTrendingUp, IconBuildingBank } from "@tabler/icons-react"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -9,29 +9,46 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { getLatestBalanceAction } from "@/actions/kledo-actions"
 
 export function SectionCards() {
+  // Simple state for demonstration. Ideally valid data fetching is done in a Server Component or with detailed loading states.
+  const [balance, setBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function fetchBalance() {
+      const res = await getLatestBalanceAction();
+      if (res.success && res.balance !== null) {
+        setBalance(res.balance as number);
+      }
+    }
+    fetchBalance();
+  }, []);
+
+  const formattedBalance = balance !== null
+    ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(balance)
+    : "Not Connected";
+
   return (
     <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Total Revenue</CardDescription>
+          <CardDescription>Bank Balance</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            $1,250.00
+            {formattedBalance}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              +12.5%
-            </Badge>
+            <div className="rounded-full bg-primary/10 p-2 text-primary">
+              <IconBuildingBank size={20} />
+            </div>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Trending up this month <IconTrendingUp className="size-4" />
+            Live from Kledo
           </div>
           <div className="text-muted-foreground">
-            Visitors for the last 6 months
+            Total calculated balance
           </div>
         </CardFooter>
       </Card>
