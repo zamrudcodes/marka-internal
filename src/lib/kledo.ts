@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 
-const KLEDO_API_URL = process.env.NEXT_PUBLIC_KLEDO_API_URL || "https://pt-marka-digital-indonesia.api.kledo.com/api/v1";
+const KLEDO_BASE_URL = "https://pt-marka-digital-indonesia.api.kledo.com";
+const KLEDO_API_URL = `${KLEDO_BASE_URL}/api/v1`;
 const CLIENT_ID = process.env.KLEDO_CLIENT_ID;
 const CLIENT_SECRET = process.env.KLEDO_CLIENT_SECRET;
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/kledo/callback`;
@@ -19,13 +20,12 @@ export async function getAuthUrl() {
         client_id: CLIENT_ID,
         redirect_uri: REDIRECT_URI,
         response_type: "code",
-        scope: "finance:read", // Adjust if needed
     });
-    return `https://login.kledo.com/oauth/authorize?${params.toString()}`;
+    return `${KLEDO_API_URL}/oauth/authorize?${params.toString()}`;
 }
 
 export async function exchangeCodeForToken(code: string): Promise<KledoToken> {
-    const response = await fetch("https://login.kledo.com/oauth/token", {
+    const response = await fetch(`${KLEDO_API_URL}/oauth/token`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -98,7 +98,7 @@ async function getValidAccessToken() {
 }
 
 async function refreshAccessToken(refreshToken: string, rowId: string) {
-    const response = await fetch("https://login.kledo.com/oauth/token", {
+    const response = await fetch(`${KLEDO_API_URL}/oauth/token`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
