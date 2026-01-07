@@ -2,36 +2,36 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { toTitleCase } from "@/lib/utils/text-format";
 
 export async function uploadEmployeeAvatar(employeeId: string, file: File) {
   const supabase = await createClient();
-  
+
   // Validate file type
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   if (!validTypes.includes(file.type)) {
     throw new Error('Invalid file type. Please upload a JPEG, PNG, or WebP image.');
   }
-  
+
   // Validate file size (max 5MB)
   const maxSize = 5 * 1024 * 1024; // 5MB
   if (file.size > maxSize) {
     throw new Error('File size too large. Maximum size is 5MB.');
   }
-  
+
   // Generate unique filename
   const fileExt = file.name.split('.').pop();
   const fileName = `${employeeId}-${Date.now()}.${fileExt}`;
   const filePath = `${fileName}`;
-  
+
   // Delete old avatar if exists
   const { data: employee } = await supabase
     .from('employees')
     .select('avatar_url')
     .eq('id', employeeId)
     .single();
-    
+
   if (employee?.avatar_url) {
     // Extract filename from URL
     const oldFileName = employee.avatar_url.split('/').pop();
@@ -41,7 +41,7 @@ export async function uploadEmployeeAvatar(employeeId: string, file: File) {
         .remove([oldFileName]);
     }
   }
-  
+
   // Upload new avatar
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('avatars')
@@ -49,31 +49,31 @@ export async function uploadEmployeeAvatar(employeeId: string, file: File) {
       cacheControl: '3600',
       upsert: false
     });
-    
+
   if (uploadError) {
     console.error('Error uploading avatar:', uploadError);
     throw new Error('Failed to upload avatar: ' + uploadError.message);
   }
-  
+
   // Get public URL
   const { data: { publicUrl } } = supabase.storage
     .from('avatars')
     .getPublicUrl(filePath);
-  
+
   // Update employee record with new avatar URL
   const { error: updateError } = await supabase
     .from('employees')
     .update({ avatar_url: publicUrl })
     .eq('id', employeeId);
-    
+
   if (updateError) {
     console.error('Error updating employee avatar:', updateError);
     throw new Error('Failed to update employee record: ' + updateError.message);
   }
-  
+
   revalidatePath(`/employees/${employeeId}`);
   revalidatePath('/employees');
-  
+
   return { success: true, avatarUrl: publicUrl };
 }
 
@@ -122,13 +122,13 @@ export async function getEmployeeById(id: string) {
 // Helper function to calculate tenure in months
 function calculateTenureMonths(hireDate: string | null): number | null {
   if (!hireDate) return null;
-  
+
   const hire = new Date(hireDate);
   const now = new Date();
-  
+
   const years = now.getFullYear() - hire.getFullYear();
   const months = now.getMonth() - hire.getMonth();
-  
+
   return years * 12 + months;
 }
 
@@ -318,17 +318,17 @@ export async function exportEmployees(format: 'csv' | 'xlsx') {
 // Helper function to detect file format based on headers
 function detectFileFormat(headers: any[]): 'template' | 'hr_base' | 'unknown' {
   const headerStr = headers.map(h => h?.toString().toLowerCase().trim()).join('|');
-  
+
   // Check for HR Base format
   if (headerStr.includes('employee name') && headerStr.includes('employee id') && headerStr.includes('join date')) {
     return 'hr_base';
   }
-  
+
   // Check for template format
   if (headerStr.includes('first_name') && headerStr.includes('last_name') && headerStr.includes('hire_date')) {
     return 'template';
   }
-  
+
   return 'unknown';
 }
 
@@ -346,24 +346,34 @@ function parseEmployeeName(fullName: string): { first_name: string; last_name: s
 // Helper function to parse date in various formats
 function parseDate(dateValue: any): string | null {
   if (!dateValue) return null;
-  
+
+  // If it's already a Date object (exceljs returns Date objects for date cells)
+  if (dateValue instanceof Date) {
+    if (!isNaN(dateValue.getTime())) {
+      return dateValue.toISOString().split('T')[0];
+    }
+    return null;
+  }
+
   const dateStr = dateValue.toString().trim();
   if (!dateStr) return null;
-  
-  // Try parsing as Excel date number
+
+  // Try parsing as Excel date number (Excel serial date)
   if (!isNaN(dateStr) && Number(dateStr) > 1000) {
-    const excelDate = XLSX.SSF.parse_date_code(Number(dateStr));
-    if (excelDate) {
-      return `${excelDate.y}-${String(excelDate.m).padStart(2, '0')}-${String(excelDate.d).padStart(2, '0')}`;
+    // Excel dates are the number of days since January 1, 1900
+    const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899 (Excel uses 1-based counting with a bug)
+    const date = new Date(excelEpoch.getTime() + Number(dateStr) * 24 * 60 * 60 * 1000);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
     }
   }
-  
+
   // Try parsing ISO format or other common formats
   const date = new Date(dateStr);
   if (!isNaN(date.getTime())) {
     return date.toISOString().split('T')[0];
   }
-  
+
   return null;
 }
 
@@ -389,28 +399,45 @@ export async function bulkImportEmployees(formData: FormData) {
 
   // Check file type and parse accordingly
   if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-    // Parse XLSX file
+    // Parse XLSX file using exceljs
     const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
-    
-    if (jsonData.length < 2) {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(arrayBuffer as any);
+    const worksheet = workbook.worksheets[0];
+
+    if (!worksheet || worksheet.rowCount < 2) {
       throw new Error("File must contain at least a header row and one data row.");
     }
-    
-    headers = jsonData[0] as any[];
-    rows = jsonData.slice(1).filter((row: any) => row && row.length > 0 && row.some((cell: any) => cell !== null && cell !== undefined && cell !== ''));
+
+    // Get headers from first row
+    const headerRow = worksheet.getRow(1);
+    headers = [];
+    headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      headers[colNumber - 1] = cell.value;
+    });
+
+    // Get data rows
+    rows = [];
+    worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber === 1) return; // Skip header row
+      const rowData: any[] = [];
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        rowData[colNumber - 1] = cell.value;
+      });
+      // Only include rows that have at least one non-empty cell
+      if (rowData.some(cell => cell !== null && cell !== undefined && cell !== '')) {
+        rows.push(rowData);
+      }
+    });
   } else if (fileName.endsWith('.csv')) {
     // Parse CSV file
     const text = await file.text();
     const lines = text.split("\n").filter(line => line.trim() !== "");
-    
+
     if (lines.length < 2) {
       throw new Error("File must contain at least a header row and one data row.");
     }
-    
+
     headers = lines[0].split(",");
     rows = lines.slice(1).map(line => line.split(","));
   } else {
@@ -419,7 +446,7 @@ export async function bulkImportEmployees(formData: FormData) {
 
   // Detect file format
   const fileFormat = detectFileFormat(headers);
-  
+
   if (fileFormat === 'unknown') {
     throw new Error("Unable to detect file format. Please use the provided template or HR Base format.");
   }
@@ -427,13 +454,13 @@ export async function bulkImportEmployees(formData: FormData) {
   const employees = rows.map((fields, index) => {
     let employeeData: any = {};
     const truncate = (str: string, length: number) => str && str.length > length ? str.substring(0, length) : str;
-    
+
     if (fileFormat === 'hr_base') {
       // Map HR Base format (37 columns)
       // Column indices based on the HR Base file structure
       const fullName = fields[0]?.toString().trim() || '';
       const { first_name, last_name } = parseEmployeeName(fullName);
-      
+
       employeeData = {
         first_name: truncate(first_name, 100),
         last_name: truncate(last_name, 100),
@@ -467,7 +494,7 @@ export async function bulkImportEmployees(formData: FormData) {
         pkwt_synced: fields[35]?.toString().trim() === '1', // PKWT-synced
         bpjs_tk_id: truncate(fields[36]?.toString().trim() || '', 100), // Nomor ID BPJS TK
       };
-      
+
       // Map department
       const departmentName = fields[6]?.toString().trim() || '';
       if (departmentName) {
@@ -478,13 +505,13 @@ export async function bulkImportEmployees(formData: FormData) {
           console.warn(`Department "${departmentName}" not found for employee ${fullName}.`);
         }
       }
-      
+
     } else if (fileFormat === 'template') {
       // Map template format (30 columns) - original logic
       if (fields.length !== 30) {
         throw new Error(`Row ${index + 2} is malformed. Expected 30 columns, but got ${fields.length}.`);
       }
-      
+
       const [
         first_name,
         last_name,
@@ -557,7 +584,7 @@ export async function bulkImportEmployees(formData: FormData) {
         bpjs_tk_id: truncate(bpjs_tk_id, 100),
       };
     }
-    
+
     return employeeData;
   });
 

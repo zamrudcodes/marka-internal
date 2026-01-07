@@ -58,7 +58,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/auth/accept-invitation', '/auth/setup-admin', '/commercial/new-project-intake']
+  const publicRoutes = ['/login', '/auth/accept-invitation', '/auth/setup-admin', '/commercial/new-project-intake', '/api/auth/kledo']
 
   // Get current user (skip for public intake route to allow anonymous submissions)
   const { data: { user } } = await supabase.auth.getUser()

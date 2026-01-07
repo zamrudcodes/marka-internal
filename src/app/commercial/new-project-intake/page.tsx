@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
-    title: "New Project Intake | Marka Internal",
+    title: "New Project Intake | MarkaOS",
     description: "Submit a new commercial project intake form.",
 };
 

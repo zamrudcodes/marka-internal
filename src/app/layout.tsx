@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Marka Internal",
+  title: "MarkaOS",
   description: "Manage employees and projects for bonus calculation.",
 };
 
@@ -59,6 +59,20 @@ export default async function RootLayout({
     role: currentUser.role,
     features: userFeatures,
   } : null;
+
+  // For login page (unauthenticated users), render without sidebar and header
+  if (!currentUser) {
+    return (
+      <html lang="en" suppressHydrationWarning>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
+          {children}
+          <Toaster position="top-center" closeButton />
+        </body>
+      </html>
+    );
+  }
 
   return (
     <html lang="en" suppressHydrationWarning>

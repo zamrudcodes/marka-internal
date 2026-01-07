@@ -42,7 +42,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            Marka Internal
+            MarkaOS
           </CardTitle>
           <CardDescription className="text-center">
             Sign in to your account to continue
@@ -79,7 +79,7 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          
+
           <div className="mt-4 text-center text-sm text-muted-foreground">
             <p>Don't have an account? Contact your administrator.</p>
           </div>
